@@ -7,6 +7,7 @@ This repository contains source code and example projects from my articles publi
 Current projects in this repository:
 
 - [Fastify Node.js RESTful API](./fastify-nodejs-restful-api) - A simple and fast RESTful API built with Fastify and Node.js
+- [BFF File Handler](./bff-file-handler) - A secure TypeScript service for handling large CSV file uploads with rate limiting and monitoring
 
 Categories that will be covered:
 - Web Development
