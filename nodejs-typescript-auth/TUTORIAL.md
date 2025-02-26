@@ -1,20 +1,27 @@
-# Building a TypeScript Node.js Authentication API with Todo Functionality: A Complete Guide
+# TypeScript ile Node.js Authentication API Geliştirme: Kapsamlı Rehber
 
-In this tutorial, we'll build a full-featured REST API using TypeScript, Node.js, Express, and MongoDB. We'll implement both JWT and Google OAuth authentication, along with a complete Todo management system. This tutorial will cover various TypeScript features and best practices for building secure and scalable APIs.
+Bu eğitimde, TypeScript, Node.js, Express ve MongoDB kullanarak tam özellikli bir REST API geliştireceğiz. JWT ve Google OAuth kimlik doğrulaması ile birlikte eksiksiz bir Todo yönetim sistemi uygulayacağız. Bu eğitim, güvenli ve ölçeklenebilir API'ler oluşturmak için çeşitli TypeScript özelliklerini ve en iyi uygulamaları kapsayacaktır.
 
-## Table of Contents
+## İçindekiler
 
-1. [Project Setup](#project-setup)
-2. [TypeScript Configuration](#typescript-configuration)
-3. [Project Structure](#project-structure)
-4. [Implementing Core Features](#implementing-core-features)
-5. [Authentication System](#authentication-system)
-6. [Todo Management](#todo-management)
-7. [Testing the API](#testing-the-api)
+1. [Proje Kurulumu](#proje-kurulumu)
+2. [TypeScript Temelleri ve Konfigürasyonu](#typescript-temelleri-ve-konfigürasyonu)
+3. [Proje Yapısı](#proje-yapısı)
+4. [TypeScript ile Temel Özellikler](#typescript-ile-temel-özellikler)
+   - [Temel Tipler ve Type Annotations](#temel-tipler)
+   - [Fonksiyonlar ve Type Signatures](#fonksiyonlar)
+   - [Nesne Tipleri](#nesne-tipleri)
+   - [Interfaces](#interfaces)
+   - [Classes](#classes)
+   - [Generics](#generics)
+   - [Type Narrowing](#type-narrowing)
+5. [Kimlik Doğrulama Sistemi](#kimlik-doğrulama-sistemi)
+6. [Todo Yönetimi](#todo-yönetimi)
+7. [API Testi](#api-testi)
 
-## Project Setup
+## Proje Kurulumu
 
-First, let's set up our project with TypeScript and necessary dependencies:
+İlk olarak, projemizi TypeScript ve gerekli bağımlılıklarla kuralım:
 
 ```bash
 mkdir nodejs-typescript-auth
@@ -23,16 +30,16 @@ npm init -y
 npm install typescript ts-node @types/node --save-dev
 ```
 
-Install the required dependencies:
+Gerekli bağımlılıkları yükleyelim:
 
 ```bash
 npm install express mongoose dotenv jsonwebtoken bcrypt passport passport-google-oauth20 passport-jwt cors
 npm install @types/express @types/mongoose @types/jsonwebtoken @types/bcrypt @types/passport @types/passport-google-oauth20 @types/passport-jwt @types/cors --save-dev
 ```
 
-## TypeScript Configuration
+## TypeScript Temelleri ve Konfigürasyonu
 
-Create a `tsconfig.json` file with the following configuration:
+### TypeScript Compiler Konfigürasyonu
 
 ```json
 {
@@ -51,45 +58,92 @@ Create a `tsconfig.json` file with the following configuration:
 }
 ```
 
-## Project Structure
+Bu yapılandırma dosyası TypeScript derleyicisine projemizin nasıl derleneceğini söyler:
+- ```target```: JavaScript çıktı versiyonu
+- ```module```: Modül sistemi (CommonJS - Node.js için standart)
+- ```outDir```: Derlenmiş JavaScript dosyalarının konumu
+- ```strict```: Katı tip kontrolü
+- ```esModuleInterop```: ES modülleri ile uyumluluk
 
-Our project follows a clean and modular structure:
+## TypeScript ile Temel Özellikler
 
+### Temel Tipler
+
+TypeScript'in temel tiplerini projemizde kullanma örnekleri:
+
+```typescript
+// src/types/basic.ts
+const port: number = 3000;
+const apiVersion: string = 'v1';
+const isProduction: boolean = process.env.NODE_ENV === 'production';
+
+// Union types örneği
+type UserRole = 'user' | 'admin';
+const userRole: UserRole = 'user';
 ```
-src/
-├── config/         # Configuration files
-├── controllers/    # Request handlers
-├── interfaces/     # TypeScript interfaces
-├── middleware/     # Express middleware
-├── models/        # Mongoose models
-├── routes/        # API routes
-├── services/      # Business logic
-├── utils/         # Utility functions
-└── index.ts       # Application entry point
+
+### Fonksiyonlar
+
+TypeScript ile fonksiyon tanımlamaları ve tip imzaları:
+
+```typescript
+// src/services/auth.service.ts
+async function verifyPassword(
+  plainPassword: string, 
+  hashedPassword: string
+): Promise<boolean> {
+  return await bcrypt.compare(plainPassword, hashedPassword);
+}
+
+// Arrow function ile tip tanımı
+const generateToken = (userId: string): string => {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET!, { expiresIn: '1d' });
+};
 ```
 
-## Implementing Core Features
+### Nesne Tipleri
 
-### 1. TypeScript Interfaces
+Nesne tiplerini tanımlama ve kullanma:
 
-Let's start by defining our interfaces. This demonstrates TypeScript's type system and interface capabilities:
+```typescript
+// src/types/config.ts
+type DatabaseConfig = {
+  uri: string;
+  options: {
+    useNewUrlParser: boolean;
+    useUnifiedTopology: boolean;
+  };
+};
+
+const dbConfig: DatabaseConfig = {
+  uri: process.env.MONGODB_URI!,
+  options: {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  }
+};
+```
+
+### Interfaces
+
+Interface kullanımı ve inheritance örnekleri:
 
 ```typescript
 // src/interfaces/user.interface.ts
-import { Document } from 'mongoose';
-
-export interface IUser extends Document {
+interface IBaseUser {
   email: string;
-  password?: string;
   name: string;
+}
+
+interface IUser extends IBaseUser {
+  password?: string;
   googleId?: string;
-  profilePicture?: string;
   role: 'user' | 'admin';
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-// src/interfaces/todo.interface.ts
-export interface ITodo extends Document {
+// Todo interface örneği
+interface ITodo {
   title: string;
   description?: string;
   completed: boolean;
@@ -97,43 +151,73 @@ export interface ITodo extends Document {
 }
 ```
 
-### 2. MongoDB Models
+### Classes
 
-We use TypeScript classes and decorators with Mongoose:
+TypeScript sınıfları ve inheritance:
 
 ```typescript
-// src/models/user.model.ts
-import mongoose, { Schema } from 'mongoose';
-import bcrypt from 'bcrypt';
-import { IUser } from '../interfaces/user.interface';
+// src/services/base.service.ts
+abstract class BaseService<T> {
+  constructor(protected model: Model<T>) {}
 
-const UserSchema = new Schema({
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: false },
-  name: { type: String, required: true },
-  googleId: { type: String, unique: true, sparse: true },
-  role: { type: String, enum: ['user', 'admin'], default: 'user' }
-});
-
-// Pre-save hook example using TypeScript
-UserSchema.pre<IUser>('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password!, salt);
-    next();
-  } catch (error: any) {
-    next(error);
+  async findById(id: string): Promise<T | null> {
+    return this.model.findById(id);
   }
-});
+}
+
+// Todo service örneği
+class TodoService extends BaseService<ITodo> {
+  async createTodo(todoData: ICreateTodo, userId: string): Promise<ITodo> {
+    return this.model.create({ ...todoData, user: userId });
+  }
+}
 ```
 
-## Authentication System
+### Generics
 
-### 1. JWT Authentication
+Generic tiplerin kullanımı:
 
-We implement JWT authentication using TypeScript generics and async/await:
+```typescript
+// src/utils/response.ts
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: string;
+}
+
+function createResponse<T>(
+  success: boolean,
+  message: string,
+  data?: T,
+  error?: string
+): ApiResponse<T> {
+  return { success, message, data, error };
+}
+```
+
+### Type Narrowing
+
+Type narrowing örnekleri:
+
+```typescript
+// src/utils/error-handler.ts
+function handleError(error: unknown): ApiResponse<null> {
+  if (error instanceof Error) {
+    return createResponse(false, 'Error occurred', null, error.message);
+  }
+  
+  if (typeof error === 'string') {
+    return createResponse(false, 'Error occurred', null, error);
+  }
+  
+  return createResponse(false, 'Unknown error occurred', null);
+}
+```
+
+## Kimlik Doğrulama Sistemi
+
+JWT kimlik doğrulama implementasyonu:
 
 ```typescript
 // src/services/auth.service.ts
@@ -141,7 +225,7 @@ class AuthService {
   public async login(loginData: IUserLogin): Promise<{ user: IUser; token: string }> {
     const user = await UserModel.findOne({ email: loginData.email });
     if (!user || !(await user.comparePassword(loginData.password))) {
-      throw new Error('Invalid credentials');
+      throw new Error('Geçersiz kimlik bilgileri');
     }
     
     return {
@@ -149,163 +233,71 @@ class AuthService {
       token: this.generateToken(user)
     };
   }
-
-  private generateToken(user: IUser): string {
-    return jwt.sign(
-      { id: user._id, email: user.email },
-      process.env.JWT_SECRET!,
-      { expiresIn: '1d' }
-    );
-  }
 }
 ```
 
-### 2. Google OAuth Integration
+## Todo Yönetimi
 
-We use Passport.js with TypeScript for Google OAuth:
-
-```typescript
-// src/config/passport.ts
-export const configurePassport = (): void => {
-  passport.use(
-    new GoogleStrategy(
-      {
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL
-      },
-      async (accessToken, refreshToken, profile, done) => {
-        try {
-          let user = await UserModel.findOne({ googleId: profile.id });
-          if (!user) {
-            user = await UserModel.create({
-              googleId: profile.id,
-              email: profile.emails?.[0]?.value,
-              name: profile.displayName
-            });
-          }
-          return done(null, user);
-        } catch (error) {
-          return done(error, false);
-        }
-      }
-    )
-  );
-};
-```
-
-## Todo Management
-
-### 1. Todo Service Layer
-
-The service layer demonstrates TypeScript's type narrowing and error handling:
+Todo servisi implementasyonu:
 
 ```typescript
 // src/services/todo.service.ts
-class TodoService {
-  public async createTodo(todoData: ICreateTodo, userId: string): Promise<ITodo> {
-    try {
-      const todo = await TodoModel.create({
-        ...todoData,
-        user: userId
-      });
-      return todo;
-    } catch (error) {
-      throw new Error('Failed to create todo');
-    }
+class TodoService extends BaseService<ITodo> {
+  public async getAllTodos(userId: string): Promise<ITodo[]> {
+    return this.model.find({ user: userId });
   }
 
   public async updateTodo(
     todoId: string,
-    todoData: IUpdateTodo,
+    todoData: Partial<ITodo>,
     userId: string
-  ): Promise<ITodo> {
-    const todo = await TodoModel.findOneAndUpdate(
+  ): Promise<ITodo | null> {
+    return this.model.findOneAndUpdate(
       { _id: todoId, user: userId },
       todoData,
       { new: true }
     );
-    
-    if (!todo) {
-      throw new Error('Todo not found');
-    }
-    
-    return todo;
   }
 }
 ```
 
-### 2. Controller Layer
+## API Testi
 
-Controllers showcase TypeScript's async/await and error handling patterns:
+API endpoint'lerini test etmek için örnek istekler:
 
-```typescript
-// src/controllers/todo.controller.ts
-class TodoController {
-  public async getAllTodos(req: Request, res: Response): Promise<void> {
-    try {
-      const userId = req.user!._id;
-      const todos = await todoService.getAllTodos(userId);
-      
-      res.status(200).json({
-        success: true,
-        data: todos
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-}
-```
-
-## Testing the API
-
-You can test the API using tools like Postman or curl. Here are some example requests:
-
-### Authentication
+### Kullanıcı Kaydı
 
 ```bash
-# Register a new user
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123","name":"John Doe"}'
-
-# Login
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}'
+curl -X POST http://localhost:3000/api/auth/register \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "test@example.com",
+    "password": "password123",
+    "name": "Test User"
+  }'
 ```
 
-### Todo Operations
+### Kullanıcı Girişi
 
 ```bash
-# Create a todo (with JWT token)
-curl -X POST http://localhost:3000/api/todos \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Learn TypeScript","description":"Study TypeScript features"}'
+curl -X POST http://localhost:3000/api/auth/login \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "test@example.com",
+    "password": "password123"
+  }'
 ```
 
-## Conclusion
+### Todo Oluşturma
 
-This tutorial demonstrated how to build a secure and scalable API using TypeScript and Node.js. We covered important TypeScript features like:
+```bash
+curl -X POST http://localhost:3000/api/todos \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \\
+  -d '{
+    "title": "Yeni Todo",
+    "description": "Todo açıklaması"
+  }'
+```
 
-- Interfaces and type definitions
-- Generics with API responses
-- Class-based services
-- Type narrowing and error handling
-- Async/await with proper typing
-- MongoDB integration with TypeScript
-
-The complete source code is available in the repository, along with detailed documentation for each component.
-
-Remember to:
-1. Set up proper environment variables
-2. Configure MongoDB connection
-3. Set up Google OAuth credentials
-4. Follow security best practices in production
-
-Happy coding! 
+Bu eğitim, TypeScript'in temel özelliklerini gerçek bir projede nasıl kullanabileceğinizi göstermektedir. Her bir bölüm, TypeScript'in güçlü tip sistemi ve nesne yönelimli programlama özelliklerini kullanarak güvenli ve ölçeklenebilir bir API geliştirmenin farklı yönlerini ele almaktadır. 
