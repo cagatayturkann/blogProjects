@@ -1,0 +1,83 @@
+const express = require('express');
+const { MongoClient } = require('mongodb');
+const { OpenAI } = require('openai');
+
+const app = express();
+app.use(express.json());
+
+const OPENAI_API_KEY = '<your-openai-api-key>';
+const MONGO_URI = 'mongodb://localhost:27017';
+const DATABASE_NAME = 'conversationDB';
+const COLLECTION_NAME = 'conversations';
+
+// OpenAI yapılandırması
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+});
+
+// MongoDB bağlantısı
+const client = new MongoClient(MONGO_URI, { useUnifiedTopology: true });
+let conversationCollection;
+
+client
+  .connect()
+  .then(() => {
+    const db = client.db(DATABASE_NAME);
+    conversationCollection = db.collection(COLLECTION_NAME);
+    console.log("MongoDB'ye bağlanıldı.");
+  })
+  .catch((err) => console.error('MongoDB bağlantı hatası:', err));
+
+// Chat endpoint'i
+app.post('/chat', async (req, res) => {
+  const { userId, message } = req.body;
+  console.log(userId, message);
+  
+  if (!userId || !message) {
+    return res.status(400).send({ error: 'userId ve message gerekli.' });
+  }
+
+  try {
+    // Kullanıcının önceki sohbet geçmişini al
+    let conversation = await conversationCollection.findOne({ userId });
+    if (!conversation) {
+      conversation = { userId, messages: [] };
+    }
+
+    // Kullanıcı mesajını geçmişe ekle
+    conversation.messages.push({ role: 'user', content: message });
+
+    console.log(conversation.messages);
+    
+    // Konuşma geçmişini prompt'a dönüştür
+    let prompt = '';
+    conversation.messages.forEach((msg) => {
+      prompt += (msg.role === 'user' ? 'Kullanıcı' : 'Ajan') + `: ${msg.content}\n`;
+    });
+    prompt += 'Ajan:'; // Ajanın yanıt vermesi için
+
+    // OpenAI API çağrısı
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 100,
+      temperature: 0.7,
+    });
+    const agentReply = response.choices[0].message.content.trim();
+
+    // Ajan yanıtını geçmişe ekle
+    conversation.messages.push({ role: 'agent', content: agentReply });
+
+    // Güncellenmiş sohbeti MongoDB'ye kaydet (upsert)
+    await conversationCollection.updateOne({ userId }, { $set: { messages: conversation.messages } }, { upsert: true });
+
+    res.send({ reply: agentReply });
+  } catch (error) {
+    console.error('Sohbet işlenirken hata:', error);
+    res.status(500).send({ error: 'Sunucu hatası' });
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Sunucu 3000 portunda çalışıyor.');
+});
